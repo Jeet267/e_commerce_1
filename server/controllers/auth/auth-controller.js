@@ -15,10 +15,16 @@ const registerUser = async (req, res) => {
       });
 
     const hashPassword = await bcrypt.hash(password, 12);
+    
+    // Automatically make the user an admin if the email contains "admin" 
+    // or the username is "admin"
+    const role = email.includes("admin") || userName.toLowerCase() === "admin" ? "admin" : "user";
+
     const newUser = new User({
       userName,
       email,
       password: hashPassword,
+      role,
     });
 
     await newUser.save();
@@ -27,10 +33,19 @@ const registerUser = async (req, res) => {
       message: "Registration successful",
     });
   } catch (e) {
-    console.log(e);
+    console.log("Registration Error:", e);
+    
+    // Handle MongoDB Duplicate Key Error (e.g., username already exists)
+    if (e.code === 11000) {
+      return res.status(400).json({
+        success: false,
+        message: "User Name or Email already exists. Please try a different one.",
+      });
+    }
+
     res.status(500).json({
       success: false,
-      message: "Some error occured",
+      message: e.message || "Some error occurred during registration",
     });
   }
 };
@@ -79,10 +94,10 @@ const loginUser = async (req, res) => {
       },
     });
   } catch (e) {
-    console.log(e);
+    console.log("Login Error:", e);
     res.status(500).json({
       success: false,
-      message: "Some error occured",
+      message: e.message || "Some error occurred during login",
     });
   }
 };

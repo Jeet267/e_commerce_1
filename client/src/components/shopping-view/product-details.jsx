@@ -123,20 +123,11 @@ function ProductDetailsDialog({ open, setOpen, productDetails }) {
               {productDetails?.description}
             </p>
           </div>
-          <div className="flex items-center justify-between">
-            <p
-              className={`text-3xl font-bold text-primary ${
-                productDetails?.salePrice > 0 ? "line-through" : ""
-              }`}
-            >
-              ${productDetails?.price}
-            </p>
-            {productDetails?.salePrice > 0 ? (
-              <p className="text-2xl font-bold text-muted-foreground">
-                ${productDetails?.salePrice}
+            <div className="flex items-center gap-2 mt-2">
+              <p className="text-3xl font-bold text-primary">
+                ₹{productDetails?.salePrice > 0 ? productDetails?.salePrice : productDetails?.price}
               </p>
-            ) : null}
-          </div>
+            </div>
           <div className="flex items-center gap-2 mt-2">
             <div className="flex items-center gap-0.5">
               <StarRatingComponent rating={averageReview} />
