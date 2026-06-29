@@ -5,16 +5,16 @@ import UserCartItemsContent from "@/components/shopping-view/cart-items-content"
 import { Button } from "@/components/ui/button";
 import { useState } from "react";
 import { createNewOrder } from "@/store/shop/order-slice";
-import { Navigate } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import { useToast } from "@/components/ui/use-toast";
 
 function ShoppingCheckout() {
   const { cartItems } = useSelector((state) => state.shopCart);
   const { user } = useSelector((state) => state.auth);
-  const { approvalURL } = useSelector((state) => state.shopOrder);
   const [currentSelectedAddress, setCurrentSelectedAddress] = useState(null);
   const [isPaymentStart, setIsPaymemntStart] = useState(false);
   const dispatch = useDispatch();
+  const navigate = useNavigate();
   const { toast } = useToast();
 
   console.log(currentSelectedAddress, "cartItems");
@@ -32,8 +32,8 @@ function ShoppingCheckout() {
         )
       : 0;
 
-  function handleInitiatePaypalPayment() {
-    if (cartItems.length === 0) {
+  function handlePlaceOrder() {
+    if (!cartItems || !cartItems.items || cartItems.items.length === 0) {
       toast({
         title: "Your cart is empty. Please add items to proceed",
         variant: "destructive",
@@ -71,28 +71,30 @@ function ShoppingCheckout() {
         phone: currentSelectedAddress?.phone,
         notes: currentSelectedAddress?.notes,
       },
-      orderStatus: "pending",
-      paymentMethod: "paypal",
-      paymentStatus: "pending",
+      orderStatus: "confirmed",
+      paymentMethod: "cod",
+      paymentStatus: "paid",
       totalAmount: totalCartAmount,
       orderDate: new Date(),
       orderUpdateDate: new Date(),
-      paymentId: "",
-      payerId: "",
+      paymentId: "direct_payment",
+      payerId: "direct_user",
     };
 
+    setIsPaymemntStart(true);
     dispatch(createNewOrder(orderData)).then((data) => {
       console.log(data);
       if (data?.payload?.success) {
-        setIsPaymemntStart(true);
+        setIsPaymemntStart(false);
+        navigate("/shop/payment-success");
       } else {
         setIsPaymemntStart(false);
+        toast({
+          title: "Failed to place order. Please try again.",
+          variant: "destructive",
+        });
       }
     });
-  }
-
-  if (approvalURL) {
-    window.location.href = approvalURL;
   }
 
   return (
@@ -108,7 +110,7 @@ function ShoppingCheckout() {
         <div className="flex flex-col gap-4">
           {cartItems && cartItems.items && cartItems.items.length > 0
             ? cartItems.items.map((item) => (
-                <UserCartItemsContent cartItem={item} />
+                <UserCartItemsContent cartItem={item} key={item.productId} />
               ))
             : null}
           <div className="mt-8 space-y-4">
@@ -118,10 +120,8 @@ function ShoppingCheckout() {
             </div>
           </div>
           <div className="mt-4 w-full">
-            <Button onClick={handleInitiatePaypalPayment} className="w-full">
-              {isPaymentStart
-                ? "Processing Paypal Payment..."
-                : "Checkout with Paypal"}
+            <Button onClick={handlePlaceOrder} className="w-full" disabled={isPaymentStart}>
+              {isPaymentStart ? "Placing Order..." : "Place Order"}
             </Button>
           </div>
         </div>
