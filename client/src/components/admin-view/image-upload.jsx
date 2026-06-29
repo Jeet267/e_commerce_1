@@ -6,6 +6,8 @@ import { Button } from "../ui/button";
 import axios from "axios";
 import { Skeleton } from "../ui/skeleton";
 
+const API = import.meta.env.VITE_API_URL || "";
+
 function ProductImageUpload({
   imageFile,
   setImageFile,
@@ -51,7 +53,7 @@ function ProductImageUpload({
     data.append("my_file", imageFile);
     try {
       const response = await axios.post(
-        "http://localhost:5000/api/admin/products/upload-image",
+        `${API}/api/admin/products/upload-image`,
         data
       );
       console.log(response, "response");

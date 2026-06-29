@@ -1,3 +1,4 @@
+require("dotenv").config();
 const express = require("express");
 const mongoose = require("mongoose");
 const cookieParser = require("cookie-parser");
@@ -15,23 +16,32 @@ const shopReviewRouter = require("./routes/shop/review-routes");
 
 const commonFeatureRouter = require("./routes/common/feature-routes");
 
-//create a database connection -> u can also
-//create a separate file for this and then import/use that file here
-
+// Database connection
 mongoose
-  .connect(
-    process.env.MONGO_URI ||
-      "mongodb+srv://ajtkr200_db_user:iLgBwCMuGhus2vW5@cluster0.geuadmx.mongodb.net/ecommerce?retryWrites=true&w=majority"
-  )
+  .connect(process.env.MONGO_URI)
   .then(() => console.log("MongoDB connected"))
   .catch((error) => console.error("MongoDB connection error:", error));
 
 const app = express();
 const PORT = process.env.PORT || 5000;
 
+// Allow multiple origins (local dev + Vercel preview URLs)
+const allowedOrigins = [
+  process.env.CLIENT_URL,
+  "http://localhost:5173",
+  "http://localhost:3000",
+].filter(Boolean);
+
 app.use(
   cors({
-    origin: process.env.CLIENT_URL || "http://localhost:5173",
+    origin: function (origin, callback) {
+      // Allow requests with no origin (like mobile apps, curl, Postman)
+      if (!origin) return callback(null, true);
+      if (allowedOrigins.includes(origin)) return callback(null, true);
+      // Allow any vercel.app subdomain for preview deployments
+      if (origin.endsWith(".vercel.app")) return callback(null, true);
+      return callback(new Error("Not allowed by CORS"));
+    },
     methods: ["GET", "POST", "DELETE", "PUT"],
     allowedHeaders: [
       "Content-Type",
@@ -46,6 +56,7 @@ app.use(
 
 app.use(cookieParser());
 app.use(express.json());
+
 app.use("/api/auth", authRouter);
 app.use("/api/admin/products", adminProductsRouter);
 app.use("/api/admin/orders", adminOrderRouter);
@@ -59,4 +70,15 @@ app.use("/api/shop/review", shopReviewRouter);
 
 app.use("/api/common/feature", commonFeatureRouter);
 
-app.listen(PORT, () => console.log(`Server is now running on port ${PORT}`));
+// Health check route
+app.get("/api/health", (req, res) => {
+  res.json({ status: "ok", message: "ShopSphere API is running" });
+});
+
+// Local dev: start server normally
+// Vercel: export the app as a serverless function
+if (process.env.NODE_ENV !== "production") {
+  app.listen(PORT, () => console.log(`Server is now running on port ${PORT}`));
+}
+
+module.exports = app;
