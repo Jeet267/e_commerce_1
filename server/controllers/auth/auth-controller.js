@@ -15,7 +15,7 @@ const registerUser = async (req, res) => {
       });
 
     const hashPassword = await bcrypt.hash(password, 12);
-    
+
     // Automatically make the user an admin if the email contains "admin" 
     // or the username is "admin"
     const role = email.includes("admin") || userName.toLowerCase() === "admin" ? "admin" : "user";
@@ -34,7 +34,7 @@ const registerUser = async (req, res) => {
     });
   } catch (e) {
     console.log("Registration Error:", e);
-    
+
     // Handle MongoDB Duplicate Key Error (e.g., username already exists)
     if (e.code === 11000) {
       return res.status(400).json({
@@ -83,7 +83,7 @@ const loginUser = async (req, res) => {
       { expiresIn: "60m" }
     );
 
-    res.cookie("token", token, { httpOnly: true, secure: false }).json({
+    res.cookie("token", token, { httpOnly: true, secure: true }).json({
       success: true,
       message: "Logged in successfully",
       user: {
