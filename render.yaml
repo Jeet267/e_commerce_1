@@ -1,0 +1,34 @@
+services:
+  # Backend Web Service
+  - type: web
+    name: shopsphere-api
+    env: node
+    rootDir: server
+    buildCommand: npm install
+    startCommand: node server.js
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: MONGO_URI
+        sync: false
+      - key: JWT_SECRET_KEY
+        sync: false
+      - key: CLOUDINARY_CLOUD_NAME
+        sync: false
+      - key: CLOUDINARY_API_KEY
+        sync: false
+      - key: CLOUDINARY_API_SECRET
+        sync: false
+      # The CLIENT_URL will be added manually in the dashboard once the frontend URL is known
+
+  # Frontend Static Site
+  - type: web
+    name: shopsphere-client
+    env: static
+    rootDir: client
+    buildCommand: npm install && npm run build
+    staticPublishPath: dist
+    envVars:
+      # The VITE_API_URL will be added manually in the dashboard once the backend URL is known
+      - key: VITE_API_URL
+        sync: false
