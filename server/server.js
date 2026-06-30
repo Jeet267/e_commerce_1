@@ -16,11 +16,20 @@ const shopReviewRouter = require("./routes/shop/review-routes");
 
 const commonFeatureRouter = require("./routes/common/feature-routes");
 
-// Database connection
-mongoose
-  .connect(process.env.MONGO_URI)
-  .then(() => console.log("MongoDB connected"))
-  .catch((error) => console.error("MongoDB connection error:", error));
+// Database connection with reconnection on failure
+const connectDB = async () => {
+  try {
+    await mongoose.connect(process.env.MONGO_URI);
+    console.log("MongoDB connected");
+  } catch (error) {
+    console.error("MongoDB connection error:", error.message);
+    // Retry after 5 seconds instead of crashing
+    console.log("Retrying MongoDB connection in 5 seconds...");
+    setTimeout(connectDB, 5000);
+  }
+};
+
+connectDB();
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -75,9 +84,10 @@ app.get("/api/health", (req, res) => {
   res.json({ status: "ok", message: "ShopSphere API is running" });
 });
 
-// Local dev: start server normally
-// Vercel: export the app as a serverless function
-if (process.env.NODE_ENV !== "production") {
+// Start server locally OR export for Vercel serverless
+// require.main === module is true when run directly (node server.js / nodemon)
+// It is false when imported by Vercel's serverless runtime
+if (require.main === module) {
   app.listen(PORT, () => console.log(`Server is now running on port ${PORT}`));
 }
 
