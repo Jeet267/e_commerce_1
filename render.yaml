@@ -2,6 +2,7 @@ services:
   # Backend Web Service
   - type: web
     name: shopsphere-api
+    plan: free
     env: node
     rootDir: server
     buildCommand: npm install
