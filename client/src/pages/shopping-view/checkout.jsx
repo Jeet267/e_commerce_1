@@ -4,7 +4,21 @@ import { useDispatch, useSelector } from "react-redux";
 import UserCartItemsContent from "@/components/shopping-view/cart-items-content";
 import { Button } from "@/components/ui/button";
 import { useState } from "react";
-import { createNewOrder } from "@/store/shop/order-slice";
+import { createNewOrder, capturePayment } from "@/store/shop/order-slice";
+
+const loadRazorpay = () => {
+  return new Promise((resolve) => {
+    const script = document.createElement("script");
+    script.src = "https://checkout.razorpay.com/v1/checkout.js";
+    script.onload = () => {
+      resolve(true);
+    };
+    script.onerror = () => {
+      resolve(false);
+    };
+    document.body.appendChild(script);
+  });
+};
 import { useNavigate } from "react-router-dom";
 import { useToast } from "@/components/ui/use-toast";
 
@@ -32,7 +46,7 @@ function ShoppingCheckout() {
         )
       : 0;
 
-  function handlePlaceOrder() {
+  async function handlePlaceOrder() {
     if (!cartItems || !cartItems.items || cartItems.items.length === 0) {
       toast({
         title: "Your cart is empty. Please add items to proceed",
@@ -47,6 +61,15 @@ function ShoppingCheckout() {
         variant: "destructive",
       });
 
+      return;
+    }
+
+    const res = await loadRazorpay();
+    if (!res) {
+      toast({
+        title: "Razorpay SDK failed to load. Are you online?",
+        variant: "destructive",
+      });
       return;
     }
 
@@ -71,22 +94,71 @@ function ShoppingCheckout() {
         phone: currentSelectedAddress?.phone,
         notes: currentSelectedAddress?.notes,
       },
-      orderStatus: "confirmed",
-      paymentMethod: "cod",
-      paymentStatus: "paid",
+      orderStatus: "pending",
+      paymentMethod: "razorpay",
+      paymentStatus: "pending",
       totalAmount: totalCartAmount,
       orderDate: new Date(),
       orderUpdateDate: new Date(),
-      paymentId: "direct_payment",
-      payerId: "direct_user",
+      paymentId: "pending",
+      payerId: "pending",
     };
 
     setIsPaymemntStart(true);
     dispatch(createNewOrder(orderData)).then((data) => {
-      console.log(data);
       if (data?.payload?.success) {
-        setIsPaymemntStart(false);
-        navigate("/shop/payment-success");
+        const { orderId, razorpayOrderId } = data.payload;
+
+        const options = {
+          key: import.meta.env.VITE_RAZORPAY_KEY_ID, 
+          amount: Math.round(totalCartAmount * 100),
+          currency: "INR",
+          name: "ShopSphere",
+          description: "Order Payment",
+          order_id: razorpayOrderId,
+          handler: function (response) {
+            dispatch(capturePayment({
+              razorpayPaymentId: response.razorpay_payment_id,
+              razorpayOrderId: response.razorpay_order_id,
+              razorpaySignature: response.razorpay_signature,
+              orderId: orderId
+            })).then((captureData) => {
+              if (captureData?.payload?.success) {
+                setIsPaymemntStart(false);
+                navigate("/shop/payment-success");
+              } else {
+                setIsPaymemntStart(false);
+                toast({
+                  title: "Payment verification failed. Please try again.",
+                  variant: "destructive",
+                });
+              }
+            });
+          },
+          prefill: {
+            name: user?.userName || "User",
+            email: user?.email || "user@example.com",
+            contact: currentSelectedAddress?.phone || "9999999999"
+          },
+          theme: {
+            color: "#000000"
+          },
+          modal: {
+            ondismiss: function () {
+              setIsPaymemntStart(false);
+            }
+          }
+        };
+
+        const rzp1 = new window.Razorpay(options);
+        rzp1.on('payment.failed', function (response){
+          setIsPaymemntStart(false);
+          toast({
+            title: "Payment failed. Please try again.",
+            variant: "destructive",
+          });
+        });
+        rzp1.open();
       } else {
         setIsPaymemntStart(false);
         toast({
@@ -121,7 +193,7 @@ function ShoppingCheckout() {
           </div>
           <div className="mt-4 w-full">
             <Button onClick={handlePlaceOrder} className="w-full" disabled={isPaymentStart}>
-              {isPaymentStart ? "Placing Order..." : "Place Order"}
+              {isPaymentStart ? "Processing Payment..." : "Pay with Razorpay"}
             </Button>
           </div>
         </div>

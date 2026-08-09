@@ -28,7 +28,7 @@ function AuthRegister() {
         navigate("/auth/login");
       } else {
         toast({
-          title: data?.payload?.message,
+          title: data?.payload?.message || data?.error?.message || "Registration failed. Please try again.",
           variant: "destructive",
         });
       }

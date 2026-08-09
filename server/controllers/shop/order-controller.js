@@ -1,6 +1,8 @@
 const Order = require("../../models/Order");
 const Cart = require("../../models/Cart");
 const Product = require("../../models/Product");
+const Razorpay = require("razorpay");
+const crypto = require("crypto");
 
 const createOrder = async (req, res) => {
   try {
@@ -14,8 +16,6 @@ const createOrder = async (req, res) => {
       totalAmount,
       orderDate,
       orderUpdateDate,
-      paymentId,
-      payerId,
       cartId,
     } = req.body;
 
@@ -24,19 +24,40 @@ const createOrder = async (req, res) => {
       cartId,
       cartItems,
       addressInfo,
-      orderStatus: "confirmed",
+      orderStatus: paymentMethod === "razorpay" ? "pending" : "confirmed",
       paymentMethod: paymentMethod || "cod",
-      paymentStatus: "paid",
+      paymentStatus: paymentMethod === "razorpay" ? "pending" : "paid",
       totalAmount,
       orderDate,
       orderUpdateDate,
-      paymentId: paymentId || "direct_payment",
-      payerId: payerId || "direct_user",
+      paymentId: paymentMethod === "razorpay" ? "pending" : "direct_payment",
+      payerId: paymentMethod === "razorpay" ? "pending" : "direct_user",
     });
 
     await newlyCreatedOrder.save();
 
-    // Update product stock
+    if (paymentMethod === "razorpay") {
+      const razorpayInstance = new Razorpay({
+        key_id: process.env.RAZORPAY_KEY_ID,
+        key_secret: process.env.RAZORPAY_KEY_SECRET,
+      });
+
+      const options = {
+        amount: Math.round(totalAmount * 100), 
+        currency: "INR",
+        receipt: newlyCreatedOrder._id.toString(),
+      };
+      
+      const razorpayOrder = await razorpayInstance.orders.create(options);
+      
+      return res.status(201).json({
+        success: true,
+        orderId: newlyCreatedOrder._id,
+        razorpayOrderId: razorpayOrder.id,
+      });
+    }
+
+    // Update product stock for COD
     for (let item of cartItems) {
       let product = await Product.findById(item.productId);
       if (product) {
@@ -45,7 +66,7 @@ const createOrder = async (req, res) => {
       }
     }
 
-    // Clear cart
+    // Clear cart for COD
     if (cartId) {
       await Cart.findByIdAndDelete(cartId);
     }
@@ -65,7 +86,20 @@ const createOrder = async (req, res) => {
 
 const capturePayment = async (req, res) => {
   try {
-    const { paymentId, payerId, orderId } = req.body;
+    const { razorpayPaymentId, razorpayOrderId, razorpaySignature, orderId } = req.body;
+
+    const body = razorpayOrderId + "|" + razorpayPaymentId;
+    const expectedSignature = crypto
+      .createHmac("sha256", process.env.RAZORPAY_KEY_SECRET)
+      .update(body.toString())
+      .digest("hex");
+
+    if (expectedSignature !== razorpaySignature) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid signature",
+      });
+    }
 
     let order = await Order.findById(orderId);
 
@@ -78,8 +112,8 @@ const capturePayment = async (req, res) => {
 
     order.paymentStatus = "paid";
     order.orderStatus = "confirmed";
-    order.paymentId = paymentId;
-    order.payerId = payerId;
+    order.paymentId = razorpayPaymentId;
+    order.payerId = razorpayOrderId;
 
     for (let item of order.cartItems) {
       let product = await Product.findById(item.productId);

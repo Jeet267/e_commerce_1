@@ -81,7 +81,7 @@ export const logoutUser = createAsyncThunk(
 export const checkAuth = createAsyncThunk(
   "/auth/checkauth",
 
-  async () => {
+  async (token) => {
     const response = await axios.get(
       `${API}/api/auth/check-auth`,
       {
@@ -105,6 +105,11 @@ const authSlice = createSlice({
   initialState,
   reducers: {
     setUser: (state, action) => { },
+    resetTokenAndCredentials: (state) => {
+      state.isAuthenticated = false;
+      state.user = null;
+      state.token = null;
+    }
   },
   extraReducers: (builder) => {
     builder
@@ -160,5 +165,5 @@ const authSlice = createSlice({
   },
 });
 
-export const { setUser } = authSlice.actions;
+export const { setUser, resetTokenAndCredentials } = authSlice.actions;
 export default authSlice.reducer;

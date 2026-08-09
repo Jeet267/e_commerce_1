@@ -26,7 +26,7 @@ function AuthLogin() {
         });
       } else {
         toast({
-          title: data?.payload?.message,
+          title: data?.payload?.message || data?.error?.message || "Login failed. Please try again.",
           variant: "destructive",
         });
       }
